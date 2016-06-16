@@ -162,10 +162,10 @@ class CouchDB implements ICouchDB {
 						urlencode($this->database).'/'.$id
 						);
 		$res =  $this->client->parseResponse($query);
-		if ($res['status_code'] == 200)
+		if (isset($res) && !empty($res) && $res['status_code'] == 200)
 			return true;
-			else
-				return false;
+		else
+			return false;
 	}
 	/**
 	 * This method make you update a specific document with his id
@@ -330,8 +330,87 @@ class CouchDB implements ICouchDB {
 				return false;
 	}
 	
-	public function queryView($viewName, $params) {
-		
+	
+	/**
+	 * check if the design document exist
+	 * @param string $designDocumentName
+	 * @return boolean
+	 */
+	public function designDocumentExist($designDocumentName) {
+		return $this->documentExist($designDocumentName);
+	}
+	
+	/**
+	 * check the existance of a view in a given design document
+	 * 
+	 * @param string $designDocumentName
+	 * @param string $viewName
+	 * @return boolean
+	 */
+	public function viewExist($designDocumentName, $viewName) {
+		$document = $this->getDocument($designDocumentName);
+		return (in_array($viewName, array_keys($document['views'])) ? true : false );
+	}
+	
+	/**
+	 * 
+	 * This method will create a designDocument for storing all the views we need
+	 * from the database. We add in args also the view name and the view content we want to store.
+	 * 
+	 * for more information about views: http://docs.couchdb.org/en/1.6.1/couchapp/views/intro.html
+	 * 
+	 * @param string $designDocumentName
+	 * @param string $viewName
+	 * @param string $viewFn
+	 * @throws DatabaseException if an error happen
+	 */
+	public function createView ($designDocumentName, $viewName, $viewFn) {
+		$document 	= $this->getDocument($designDocumentName);
+		$document['views'][$viewName] = [ 'map' => $viewFn];
+		$res = $this->updateDocument($designDocumentName, $document);
+		if (in_array('error', array_keys($res)))
+			throw new DatabaseException("Unable to create the view:$viewName in design document: $designDocumentName");
+		else return $res;
+	}
+	
+	/**
+	 * 
+	 * This method is for updating the view from selected design document
+	 *
+	 * @param string $designDocumentName
+	 * @param string $viewName
+	 * @param string $viewFn
+	 * @throws DatabaseException if an error happen
+	 * 
+	 */
+	public function updateView ($designDocumentName, $viewName, $viewFn) {
+		$document 	= $this->getDocument($designDocumentName);
+		$res = $this->deleteView($designDocumentName, $viewName);
+		if (in_array('error', array_keys($res)))
+			throw new DatabaseException("Unable to update the request view:$viewName in design document: $designDocumentName");
+		$document['views'][$viewName] = [ 'map' => $viewFn];
+		return $this->createView($designDocumentName, $viewName, $viewFn);
+	}
+	
+	
+	/**
+	 * delete a specific view from a design document
+	 * 
+	 * @param string $designDocumentName
+	 * @param string $viewName
+	 */
+	public function deleteView($designDocumentName, $viewName) {
+		$document 	= $this->getDocument($designDocumentName);
+		unset($document['views'][$viewName]);
+		return $this->updateDocument($designDocumentName, $document);
+	}
+	
+	
+	public function queryView($designDocumentName, $viewName, $params = null) {
+		$url = urlencode($this->database).'/'.$designDocumentName. '/_view/'. $viewName;
+		$query = $this->client->query('GET', $url);
+		$res =  $this->client->parseResponse($query);
+		print_r($res);
 	}
 	
 	public function setView($viewName, $view) {
