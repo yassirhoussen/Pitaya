@@ -410,7 +410,7 @@ class CouchDB implements ICouchDB {
 		$url = urlencode($this->database).'/'.$designDocumentName. '/_view/'. $viewName;
 		$query = $this->client->query('GET', $url);
 		$res =  $this->client->parseResponse($query);
-		print_r($res);
+		print_r($res['body']['rows']);
 	}
 	
 	public function setView($viewName, $view) {
